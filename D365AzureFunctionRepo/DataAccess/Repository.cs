@@ -10,14 +10,15 @@ namespace D365AzureFunctionRepo.DataAccess
 {
    public class Repository : IRepository
     {
-        public CdsServiceClient CdsClient { get; set; }
+        private IOrganizationService Service { get; }
+        private OrganizationServiceContext Context {get; }
+        private ILogger<Repository> Log { get; }
 
-        public ILogger<Repository> Log { get; set; }
-
-        public Repository(ILogger<Repository> log)
+        public Repository(IOrganizationService service, OrganizationServiceContext context, ILogger<Repository> log)
         {
             Log = log;
-            CdsClient = new CdsServiceClient($"AuthType = ClientSecret; ClientId={Environment.GetEnvironmentVariable("CrmClientId")}; Url = {Environment.GetEnvironmentVariable("CrmOrganizationUrl")}; ClientSecret={Environment.GetEnvironmentVariable("CrmAppKey")};");
+            Service = service;
+            Context = context;
         }
 
         public Entity GetEntityByID(Guid recordID, string entityName, string primaryKey)
@@ -25,8 +26,7 @@ namespace D365AzureFunctionRepo.DataAccess
             Log.LogInformation($"GETTING DATA FOR ENTITY");
             try
             {
-                using OrganizationServiceContext xrmContext = new OrganizationServiceContext(CdsClient);
-                var data = (from e in xrmContext.CreateQuery(entityName)
+                var data = (from e in Context.CreateQuery(entityName)
                     where (Guid)e[primaryKey] == recordID
                     select e).SingleOrDefault();
                 return data;
@@ -42,7 +42,7 @@ namespace D365AzureFunctionRepo.DataAccess
         {
             try
             {
-                return CdsClient.Create(entity);
+                return Service.Create(entity);
             }
             catch (Exception e)
             {
@@ -55,7 +55,7 @@ namespace D365AzureFunctionRepo.DataAccess
         {
             try
             {
-                 CdsClient.Update(entity);
+                 Service.Update(entity);
                  return true;
             }
             catch (Exception e)
